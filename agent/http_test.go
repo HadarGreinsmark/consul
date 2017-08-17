@@ -303,6 +303,109 @@ func TestHTTPAPIResponseHeaders(t *testing.T) {
 	}
 }
 
+func TestHTTPAPI_MethodNotAllowed(t *testing.T) {
+	tests := []struct {
+		methods, uri string
+	}{
+		{"PUT", "/v1/acl/bootstrap"},
+		{"PUT", "/v1/acl/create"},
+		{"PUT", "/v1/acl/update"},
+		{"PUT", "/v1/acl/destroy/"},
+		{"GET", "/v1/acl/info/"},
+		{"PUT", "/v1/acl/clone/"},
+		{"GET", "/v1/acl/list"},
+		{"GET", "/v1/acl/replication"},
+		{"PUT", "/v1/agent/token/"},
+		{"GET", "/v1/agent/self"},
+		{"GET", "/v1/agent/members"},
+
+		// {"GET", "/v1/agent/check/deregister/"},
+		// {"GET", "/v1/agent/check/fail/"},
+		// {"GET", "/v1/agent/check/pass/"},
+		// {"GET", "/v1/agent/check/register"},
+		// {"GET", "/v1/agent/check/update/"},
+		// {"GET", "/v1/agent/check/warn/"},
+		// {"GET", "/v1/agent/checks"},
+		// {"GET", "/v1/agent/force-leave/"},
+		// {"GET", "/v1/agent/join/"},
+		// {"GET", "/v1/agent/leave"},
+		// {"GET", "/v1/agent/maintenance"},
+		// {"GET", "/v1/agent/metrics"},
+		// {"GET", "/v1/agent/monitor"},
+		// {"GET", "/v1/agent/reload"},
+		// {"GET", "/v1/agent/service/deregister/"},
+		// {"GET", "/v1/agent/service/maintenance/"},
+		// {"GET", "/v1/agent/service/register"},
+		// {"GET", "/v1/agent/services"},
+		// {"GET", "/v1/catalog/datacenters"},
+		// {"GET", "/v1/catalog/deregister"},
+		// {"GET", "/v1/catalog/node/"},
+		// {"GET", "/v1/catalog/nodes"},
+		// {"GET", "/v1/catalog/register"},
+		// {"GET", "/v1/catalog/service/"},
+		// {"GET", "/v1/catalog/services"},
+		// {"GET", "/v1/coordinate/datacenters"},
+		// {"GET", "/v1/coordinate/nodes"},
+		// {"GET", "/v1/event/fire/"},
+		// {"GET", "/v1/event/list"},
+		// {"GET", "/v1/health/checks/"},
+		// {"GET", "/v1/health/node/"},
+		// {"GET", "/v1/health/service/"},
+		// {"GET", "/v1/health/state/"},
+		// {"GET", "/v1/internal/ui/node/"},
+		// {"GET", "/v1/internal/ui/nodes"},
+		// {"GET", "/v1/internal/ui/services"},
+		// {"GET", "/v1/kv/"},
+		// {"GET", "/v1/operator/autopilot/configuration"},
+		// {"GET", "/v1/operator/autopilot/health"},
+		// {"GET", "/v1/operator/keyring"},
+		// {"GET", "/v1/operator/raft/configuration"},
+		// {"GET", "/v1/operator/raft/peer"},
+		// {"GET", "/v1/query"},
+		// {"GET", "/v1/query/"},
+		// {"GET", "/v1/session/create"},
+		// {"GET", "/v1/session/destroy/"},
+		// {"GET", "/v1/session/info/"},
+		// {"GET", "/v1/session/list"},
+		// {"GET", "/v1/session/node/"},
+		// {"GET", "/v1/session/renew/"},
+		// {"GET", "/v1/snapshot"},
+		// {"GET", "/v1/status/leader"},
+		// {"GET", "/v1/status/peers"},
+		// {"GET", "/v1/txn"},
+	}
+
+	cfg := TestConfig()
+	cfg.ACLDatacenter = "dc1"
+	a := NewTestAgent(t.Name(), cfg)
+	defer a.Shutdown()
+
+	all := []string{"GET", "PUT", "POST", "DELETE", "HEAD"}
+	client := http.Client{}
+
+	for _, tt := range tests {
+		for _, m := range all {
+
+			t.Run(m+" "+tt.uri, func(t *testing.T) {
+				uri := fmt.Sprintf("http://%s%s", a.HTTPAddr(), tt.uri)
+				req, _ := http.NewRequest(m, uri, nil)
+				resp, err := client.Do(req)
+				if err != nil {
+					t.Fatal("client.Do failed: ", err)
+				}
+
+				allowed := strings.Contains(tt.methods, m)
+				if allowed && resp.StatusCode == http.StatusMethodNotAllowed {
+					t.Fatalf("method allowed: got status code %d want any other code", resp.StatusCode)
+				}
+				if !allowed && resp.StatusCode != http.StatusMethodNotAllowed {
+					t.Fatalf("method not allowed: got status code %d want %d", resp.StatusCode, http.StatusMethodNotAllowed)
+				}
+			})
+		}
+	}
+}
+
 func TestContentTypeIsJSON(t *testing.T) {
 	t.Parallel()
 	a := NewTestAgent(t.Name(), nil)
